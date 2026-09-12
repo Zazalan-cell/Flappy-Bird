@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Turtle & Friends</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111827;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 360px;
+            height: 640px;
+            border: 4px solid #333;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.82);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(2px);
+        }
+        .hidden {
+            display: none !important;
+        }
+        h1 {
+            margin-top: 0;
+            color: #facc15;
+            text-shadow: 2px 2px #000;
+            font-size: 28px;
+            letter-spacing: 1px;
+        }
+        h2 {
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        .btn {
+            background-color: #22c55e;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            margin: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px #15803d;
+            transition: all 0.1s ease;
+            width: 200px;
+        }
+        .btn:active {
+            box-shadow: 0 1px #15803d;
+            transform: translateY(3px);
+        }
+        .btn-secondary {
+            background-color: #0284c7;
+            box-shadow: 0 4px #0369a1;
+        }
+        .btn-secondary:active {
+            box-shadow: 0 1px #0369a1;
+        }
+        .btn-danger {
+            background-color: #ef4444;
+            box-shadow: 0 4px #b91c1c;
+        }
+        .btn-danger:active {
+            box-shadow: 0 1px #b91c1c;
+        }
+        .info-box {
+            background: rgba(255,255,255,0.12);
+            padding: 10px 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #fde047;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            background: rgba(255,255,255,0.15);
+            margin: 6px 0;
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+        .shop-item span {
+            font-size: 20px;
+        }
+        .shop-btn {
+            padding: 6px 12px;
+            font-size: 14px;
+            width: auto;
+            margin: 0;
+        }
+        .setting-row {
+            margin: 10px 0;
+            font-size: 18px;
+        }
+        select {
+            padding: 8px;
+            font-size: 16px;
+            border-radius: 5px;
+            background: #fff;
+            color: #333;
+            font-weight: bold;
+        }
+        #score-display {
+            position: absolute;
+            top: 15px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px #000;
+            z-index: 5;
+            pointer-events: none;
+        }
+        #coin-display {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #fde047;
+            text-shadow: 1px 1px 3px #000;
+            z-index: 5;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="score-display">0 / 10</div>
+    <div id="coin-display">🪙 <span id="coin-count">0</span></div>
+    
+    <canvas id="gameCanvas" width="360" height="640"></canvas>
+
+    <!-- FŐMENÜ -->
+    <div id="menu-overlay" class="overlay">
+        <h1>FLAPPY TURTLE</h1>
+        <div class="info-box">Level: <span id="menu-level-display">1</span></div>
+        <button class="btn" onclick="startGame()">JÁTÉK</button>
+        <button class="btn btn-secondary" onclick="openLevelSelect()">SZINTEK</button>
+        <button class="btn btn-secondary" onclick="openShop()">SHOP (BOLT)</button>
+        <button class="btn btn-secondary" onclick="openSettings()">BEÁLLÍTÁSOK</button>
+    </div>
+
+    <!-- SZINT VÁLASZTÓ -->
+    <div id="level-overlay" class="overlay hidden">
+        <h2>SZINTEK</h2>
+        <div class="setting-row">
+            <label for="level-select">Válassz szintet: </label>
+            <select id="level-select" onchange="changeLevel()">
+            </select>
+        </div>
+        <div class="info-box" id="level-goal-info">Cél: 10 pont</div>
+        <button class="btn" onclick="closeOverlay('level-overlay')">VISSZA</button>
+    </div>
+
+    <!-- BOLT -->
+    <div id="shop-overlay" class="overlay hidden">
+        <h2>BOLT</h2>
+        <div class="info-box">Egyenleg: 🪙 <span id="shop-coin-count">0</span></div>
+        <div id="shop-items" style="width: 100%; max-height: 320px; overflow-y: auto;">
+        </div>
+        <button class="btn" onclick="closeOverlay('shop-overlay')" style="margin-top: 15px;">VISSZA</button>
+    </div>
+
+    <!-- BEÁLLÍTÁSOK -->
+    <div id="settings-overlay" class="overlay hidden">
+        <h2>BEÁLLÍTÁSOK</h2>
+        <div class="setting-row">
+            <label for="difficulty-select">Nehézség: </label>
+            <select id="difficulty-select" onchange="changeDifficulty()">
+                <option value="easy">Könnyű</option>
+                <option value="medium" selected>Közepes</option>
+                <option value="hard">Nehéz</option>
+            </select>
+        </div>
+        <button class="btn" onclick="closeOverlay('settings-overlay')">VISSZA</button>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="gameover-overlay" class="overlay hidden">
+        <h1 style="color: #ef4444;">GAME OVER</h1>
+        <p id="gameover-score" style="font-size: 20px;">Pontszám: 0</p>
+        <p id="gameover-reward" style="font-size: 18px; color: #fde047;">Kapott pénz: +20 🪙</p>
+        <button class="btn" onclick="startGame()">RETRY</button>
+        <button class="btn btn-danger" onclick="quitToMenu()">QUIT</button>
+    </div>
+
+    <!-- LEVEL COMPLETE (NYERÉS) -->
+    <div id="win-overlay" class="overlay hidden">
+        <h1 style="color: #22c55e;">SZINT TELJESÍTVE!</h1>
+        <p id="win-score" style="font-size: 20px;">Cél teljesítve!</p>
+        <p id="win-reward" style="font-size: 18px; color: #fde047;">Kapott pénz: +100 🪙</p>
+        <button class="btn" onclick="nextLevel()">NEXT LEVEL</button>
+        <button class="btn btn-danger" onclick="quitToMenu()">QUIT</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Játék állapotok
+    let state = 'MENU';
+    let currentLevel = 1;
+    let coins = parseInt(localStorage.getItem('ft_coins')) || 0;
+    let difficulty = 'medium';
+    let selectedCharId = localStorage.getItem('ft_selected_char') || 'turtle';
+    let ownedChars = JSON.parse(localStorage.getItem('ft_owned_chars')) || ['turtle'];
+
+    // Karakterek definíciója
+    const characters = {
+        turtle: { name: 'Teknős', emoji: '🐢', price: 0 },
+        lion: { name: 'Oroszlán', emoji: '🦁', price: 40 },
+        chicken: { name: 'Csirke', emoji: '🐔', price: 60 },
+        cat: { name: 'Macska', emoji: '🐱', price: 200 },
+        cow: { name: 'Tehén', emoji: '🐮', price: 250 }
+    };
+
+    // Állítható felhők a dinamikus égbolthoz
+    let clouds = [
+        { x: 30, y: 80, size: 40, speed: 0.3 },
+        { x: 200, y: 150, size: 55, speed: 0.5 },
+        { x: 120, y: 260, size: 35, speed: 0.2 },
+        { x: 300, y: 380, size: 48, speed: 0.4 }
+    ];
+
+    // Audio szintetizátor ugrás hanghoz
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playJumpSound() {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    const diffSettings = {
+        easy: { gravity: 0.35, jump: -7, speed: 2, gap: 170, spawnRate: 110 },
+        medium: { gravity: 0.45, jump: -8, speed: 2.5, gap: 150, spawnRate: 90 },
+        hard: { gravity: 0.55, jump: -9, speed: 3.2, gap: 130, spawnRate: 75 }
+    };
+
+    let bird = { x: 50, y: 300, velocity: 0, radius: 20 };
+    let pipes = [];
+    let frameCount = 0;
+    let score = 0;
+    let targetScore = 10;
+
+    function getTargetScore(level) {
+        return Math.min(level * 10, 999);
+    }
+
+    function updateCoinDisplays() {
+        document.getElementById('coin-count').innerText = coins;
+        document.getElementById('shop-coin-count').innerText = coins;
+        localStorage.setItem('ft_coins', coins);
+    }
+
+    const levelSelectEl = document.getElementById('level-select');
+    for (let i = 1; i <= 100; i++) {
+        let opt = document.createElement('option');
+        opt.value = i;
+        opt.innerText = i + '. Szint';
+        levelSelectEl.appendChild(opt);
+    }
+
+    function updateMenuInfo() {
+        document.getElementById('menu-level-display').innerText = currentLevel;
+        targetScore = getTargetScore(currentLevel);
+        document.getElementById('level-goal-info').innerText = 'Cél: ' + targetScore + ' pont';
+        document.getElementById('score-display').innerText = score + ' / ' + targetScore;
+        updateCoinDisplays();
+    }
+
+    function openOverlay(id) {
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeOverlay(id) {
+        document.getElementById(id).classList.add('hidden');
+    }
+
+    function openLevelSelect() {
+        levelSelectEl.value = currentLevel;
+        openOverlay('level-overlay');
+    }
+
+    function changeLevel() {
+        currentLevel = parseInt(levelSelectEl.value);
+        updateMenuInfo();
+    }
+
+    function openSettings() {
+        openOverlay('settings-overlay');
+    }
+
+    function changeDifficulty() {
+        difficulty = document.getElementById('difficulty-select').value;
+    }
+
+    function openShop() {
+        renderShop();
+        openOverlay('shop-overlay');
+    }
+
+    function renderShop() {
+        const container = document.getElementById('shop-items');
+        container.innerHTML = '';
+        for (let id in characters) {
+            let char = characters[id];
+            let isOwned = ownedChars.includes(id);
+            let isSelected = selectedCharId === id;
+
+            let div = document.createElement('div');
+            div.className = 'shop-item';
+            
+            let btnHtml = '';
+            if (isSelected) {
+                btnHtml = `<button class="btn shop-btn btn-secondary" disabled>KIVÁLASZTVA</button>`;
+            } else if (isOwned) {
+                btnHtml = `<button class="btn shop-btn" onclick="selectChar('${id}')">HASZNÁL</button>`;
+            } else {
+                btnHtml = `<button class="btn shop-btn" onclick="buyChar('${id}')">${char.price} 🪙</button>`;
+            }
+
+            div.innerHTML = `
+                <span>${char.emoji} ${char.name}</span>
+                <div>${btnHtml}</div>
+            `;
+            container.appendChild(div);
+        }
+    }
+
+    function buyChar(id) {
+        let price = characters[id].price;
+        if (coins >= price) {
+            coins -= price;
+            ownedChars.push(id);
+            selectedCharId = id;
+            localStorage.setItem('ft_owned_chars', JSON.stringify(ownedChars));
+            localStorage.setItem('ft_selected_char', selectedCharId);
+            updateCoinDisplays();
+            renderShop();
+        } else {
+            alert('Nincs elég pénzed!');
+        }
+    }
+
+    function selectChar(id) {
+        selectedCharId = id;
+        localStorage.setItem('ft_selected_char', selectedCharId);
+        renderShop();
+    }
+
+    function startGame() {
+        document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+        
+        targetScore = getTargetScore(currentLevel);
+        bird.y = canvas.height / 2;
+        bird.velocity = 0;
+        pipes = [];
+        frameCount = 0;
+        score = 0;
+        state = 'PLAYING';
+        updateMenuInfo();
+    }
+
+    function jump() {
+        if (state === 'PLAYING') {
+            let cfg = diffSettings[difficulty];
+            bird.velocity = cfg.jump;
+            playJumpSound();
+        }
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') jump();
+    });
+    canvas.addEventListener('click', jump);
+
+    function spawnPipe() {
+        let cfg = diffSettings[difficulty];
+        let minHeight = 50;
+        let maxHeight = canvas.height - cfg.gap - minHeight - 50;
+        let topHeight = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+
+        pipes.push({
+            x: canvas.width,
+            top: topHeight,
+            bottom: canvas.height - topHeight - cfg.gap,
+            passed: false
+        });
+    }
+
+    function update() {
+        // Felhők mozgatása (menüben és játék alatt is fut)
+        for (let c of clouds) {
+            c.x -= c.speed;
+            if (c.x < -100) c.x = canvas.width + 50;
+        }
+
+        if (state !== 'PLAYING') return;
+
+        let cfg = diffSettings[difficulty];
+
+        bird.velocity += cfg.gravity;
+        bird.y += bird.velocity;
+
+        if (bird.y + bird.radius >= canvas.height - 30 || bird.y - bird.radius <= 0) {
+            gameOver();
+            return;
+        }
+
+        frameCount++;
+        if (frameCount % cfg.spawnRate === 0) {
+            spawnPipe();
+        }
+
+        for (let i = 0; i < pipes.length; i++) {
+            let p = pipes[i];
+            p.x -= cfg.speed;
+
+            if (bird.x + bird.radius > p.x && bird.x - bird.radius < p.x + 50) {
+                if (bird.y - bird.radius < p.top || bird.y + bird.radius > canvas.height - p.bottom) {
+                    gameOver();
+                    return;
+                }
+            }
+
+            if (!p.passed && p.x + 50 < bird.x) {
+                p.passed = true;
+                score++;
+                document.getElementById('score-display').innerText = score + ' / ' + targetScore;
+
+                if (score >= targetScore) {
+                    winLevel();
+                    return;
+                }
+            }
+        }
+
+        pipes = pipes.filter(p => p.x + 50 > 0);
+    }
+
+    function drawCloud(x, y, size) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.35, y - size * 0.25, size * 0.4, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.7, y, size * 0.45, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.35, y + size * 0.1, size * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function draw() {
+        // Égbolt átmenetes háttere (Sky Gradient)
+        let skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        skyGradient.addColorStop(0, '#38bdf8');   // Világoskék égbolt felül
+        skyGradient.addColorStop(0.7, '#bae6fd'); // Finom lágy kék középen
+        skyGradient.addColorStop(1, '#e0f2fe');   // Halvány derűs horizont
+        ctx.fillStyle = skyGradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Nap megrajzolása
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.arc(300, 70, 35, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Felhők kirajzolása
+        for (let c of clouds) {
+            drawCloud(c.x, c.y, c.size);
+        }
+
+        // Csövek
+        ctx.fillStyle = '#22c55e';
+        ctx.strokeStyle = '#15803d';
+        ctx.lineWidth = 3;
+        for (let p of pipes) {
+            ctx.fillRect(p.x, 0, 50, p.top);
+            ctx.strokeRect(p.x, 0, 50, p.top);
+            ctx.fillRect(p.x, canvas.height - p.bottom, 50, p.bottom);
+            ctx.strokeRect(p.x, canvas.height - p.bottom, 50, p.bottom);
+        }
+
+        // Föld
+        ctx.fillStyle = '#fde047';
+        ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
+        ctx.fillStyle = '#4ade80';
+        ctx.fillRect(0, canvas.height - 30, canvas.width, 8);
+
+        // Karakter (Emoji)
+        ctx.font = '36px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let emoji = characters[selectedCharId] ? characters[selectedCharId].emoji : '🐢';
+        ctx.fillText(emoji, bird.x, bird.y);
+    }
+
+    function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    function gameOver() {
+        state = 'GAMEOVER';
+        let reward = 20 + (currentLevel * 2);
+        coins += reward;
+        updateCoinDisplays();
+
+        document.getElementById('gameover-score').innerText = 'Pontszám: ' + score + ' / ' + targetScore;
+        document.getElementById('gameover-reward').innerText = 'Kapott pénz: +' + reward + ' 🪙';
+        openOverlay('gameover-overlay');
+    }
+
+    function winLevel() {
+        state = 'WIN';
+        let reward = 100 + (currentLevel * 20);
+        coins += reward;
+        updateCoinDisplays();
+
+        document.getElementById('win-score').innerText = currentLevel + '. szint teljesítve!';
+        document.getElementById('win-reward').innerText = 'Kapott pénz: +' + reward + ' 🪙';
+        openOverlay('win-overlay');
+    }
+
+    function nextLevel() {
+        if (currentLevel < 100) {
+            currentLevel++;
+        }
+        updateMenuInfo();
+        startGame();
+    }
+
+    function quitToMenu() {
+        state = 'MENU';
+        document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+        updateMenuInfo();
+        openOverlay('menu-overlay');
+    }
+
+    updateMenuInfo();
+    loop();
+</script>
+</body>
+</html>
