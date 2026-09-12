@@ -97,6 +97,13 @@
         .btn-danger:active {
             box-shadow: 0 1px #b91c1c;
         }
+        .btn-cheat {
+            background-color: #a855f7;
+            box-shadow: 0 4px #6b21a8;
+        }
+        .btn-cheat:active {
+            box-shadow: 0 1px #6b21a8;
+        }
         .info-box {
             background: rgba(255,255,255,0.12);
             padding: 10px 20px;
@@ -162,6 +169,19 @@
             z-index: 5;
             pointer-events: none;
         }
+        #cheat-indicator {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #c084fc;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 8px;
+            border-radius: 6px;
+            z-index: 5;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -169,6 +189,7 @@
 <div id="game-container">
     <div id="score-display">0 / 10</div>
     <div id="coin-display">🪙 <span id="coin-count">0</span></div>
+    <div id="cheat-indicator" class="hidden">🤖 AUTO-PILOT</div>
     
     <canvas id="gameCanvas" width="360" height="640"></canvas>
 
@@ -214,6 +235,9 @@
                 <option value="hard">Nehéz</option>
             </select>
         </div>
+        <div class="setting-row">
+            <button id="cheat-toggle-btn" class="btn btn-cheat" onclick="toggleCheat()">CHEAT: KI</button>
+        </div>
         <button class="btn" onclick="closeOverlay('settings-overlay')">VISSZA</button>
     </div>
 
@@ -221,7 +245,7 @@
     <div id="gameover-overlay" class="overlay hidden">
         <h1 style="color: #ef4444;">GAME OVER</h1>
         <p id="gameover-score" style="font-size: 20px;">Pontszám: 0</p>
-        <p id="gameover-reward" style="font-size: 18px; color: #fde047;">Kapott pénz: +20 🪙</p>
+        <p id="gameover-reward" style="font-size: 18px; color: #9ca3af;">Kapott pénz: +0 🪙</p>
         <button class="btn" onclick="startGame()">RETRY</button>
         <button class="btn btn-danger" onclick="quitToMenu()">QUIT</button>
     </div>
@@ -247,6 +271,7 @@
     let difficulty = 'medium';
     let selectedCharId = localStorage.getItem('ft_selected_char') || 'turtle';
     let ownedChars = JSON.parse(localStorage.getItem('ft_owned_chars')) || ['turtle'];
+    let cheatEnabled = false;
 
     // Karakterek definíciója
     const characters = {
@@ -346,6 +371,21 @@
 
     function changeDifficulty() {
         difficulty = document.getElementById('difficulty-select').value;
+    }
+
+    function toggleCheat() {
+        cheatEnabled = !cheatEnabled;
+        const btn = document.getElementById('cheat-toggle-btn');
+        const indicator = document.getElementById('cheat-indicator');
+        if (cheatEnabled) {
+            btn.innerText = 'CHEAT: BE';
+            btn.style.backgroundColor = '#22c55e';
+            indicator.classList.remove('hidden');
+        } else {
+            btn.innerText = 'CHEAT: KI';
+            btn.style.backgroundColor = '#a855f7';
+            indicator.classList.add('hidden');
+        }
     }
 
     function openShop() {
@@ -453,6 +493,18 @@
 
         let cfg = diffSettings[difficulty];
 
+        // CHEAT / AUTOPILOT LOGIKA
+        if (cheatEnabled) {
+            let nextPipe = pipes.find(p => p.x + 50 > bird.x - bird.radius);
+            let targetY = canvas.height / 2;
+            if (nextPipe) {
+                targetY = nextPipe.top + (cfg.gap / 2);
+            }
+            if (bird.y > targetY + 10 && bird.velocity >= 0) {
+                jump();
+            }
+        }
+
         bird.velocity += cfg.gravity;
         bird.y += bird.velocity;
 
@@ -555,12 +607,11 @@
 
     function gameOver() {
         state = 'GAMEOVER';
-        let reward = 20 + (currentLevel * 2);
-        coins += reward;
+        // Vereség esetén NEM jár jutalom
         updateCoinDisplays();
 
         document.getElementById('gameover-score').innerText = 'Pontszám: ' + score + ' / ' + targetScore;
-        document.getElementById('gameover-reward').innerText = 'Kapott pénz: +' + reward + ' 🪙';
+        document.getElementById('gameover-reward').innerText = 'Kapott pénz: +0 🪙';
         openOverlay('gameover-overlay');
     }
 
@@ -595,3 +646,5 @@
 </script>
 </body>
 </html>
+
+        
